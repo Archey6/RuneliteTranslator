@@ -1,11 +1,11 @@
-package com.example;
+package com.archtranslator;
 
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 
-@ConfigGroup("example")
-public interface ExampleConfig extends Config
+@ConfigGroup("ArchTranslator")
+public interface ArchTranslatorConfig extends Config
 {
 	@ConfigItem(
 		keyName = "greeting",
