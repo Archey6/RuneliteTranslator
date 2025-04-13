@@ -46,7 +46,8 @@ public class TranslatorApi
 			.thenApply(json -> gson.fromJson(json, JsonObject.class))
 			.thenApply(TranslatorApi::parseJson)
 			.thenAccept(callback)
-			.exceptionally(ex -> {
+			.exceptionally(ex ->
+			{
 				return null;
 			});
 	}
