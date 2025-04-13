@@ -24,14 +24,4 @@ public class TranslatorCache
 		return cache.size();
 	}
 
-	public static void debugPrintCache()
-	{
-		System.out.println("🧠 Translation Cache Dump (" + cache.size() + " items):");
-		cache.forEach((original, future) ->
-		{
-			boolean isDone = future.isDone();
-			String result = isDone ? future.getNow("[pending]") : "[pending]";
-			System.out.println("→ " + original + " = " + result + " | Done? " + isDone);
-		});
-	}
 }
