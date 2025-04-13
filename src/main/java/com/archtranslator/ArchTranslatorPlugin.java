@@ -7,10 +7,12 @@ import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.GameTick;
 import net.runelite.api.events.MenuOpened;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ClientShutdown;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -51,6 +53,14 @@ public class ArchTranslatorPlugin extends Plugin
 	protected void shutDown() throws Exception
 	{
 		log.info("Example stopped!");
+		TranslatorCache.saveMapToFile();
+	}
+
+	@Subscribe
+	public void onClientShutdown(ClientShutdown e)
+	{
+		log.info("Example stopped!");
+		TranslatorCache.saveMapToFile();
 	}
 
 	@Subscribe
@@ -173,5 +183,25 @@ public class ArchTranslatorPlugin extends Plugin
 		{
 			configChanged.setNewValue(configChanged.getNewValue());
 		}
+	}
+
+	@Subscribe
+	public void onGameTick(GameTick gameTick)
+	{
+		/*CompletableFuture<String> item;
+		item = TranslatorCache.getKey("Cancel");
+
+		try
+		{
+			if (item.isDone())
+			{
+				System.out.println(item.get());
+			}
+		}
+		catch (Exception ex)
+		{
+			System.out.println("item is null try caching something");
+		}*/
+		//System.out.println(client.getCac);
 	}
 }
