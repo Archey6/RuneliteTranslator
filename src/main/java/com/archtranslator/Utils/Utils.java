@@ -29,6 +29,7 @@ public class Utils
 
 	public static String dStrip(String input)
 	{
+		/*osros font bitmap doesnt support diacritics so we need to strip them. jagex pls fix*/
 		if (input == null)
 		{
 			return "";
