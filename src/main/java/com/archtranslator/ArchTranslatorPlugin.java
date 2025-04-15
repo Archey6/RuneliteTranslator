@@ -97,10 +97,6 @@ public class ArchTranslatorPlugin extends Plugin
 				});
 				return asyncOptionEntry;
 			});
-			if (optionFuture.isDone())
-			{
-				System.out.println("♻️ Option cache HIT: " + option + " → " + optionFuture.getNow("[not done]"));
-			}
 
 			if (!target.isEmpty() && player == null)
 			{
@@ -112,10 +108,6 @@ public class ArchTranslatorPlugin extends Plugin
 					});
 					return asyncTargetEntry;
 				});
-				if (targetFuture.isDone())
-				{
-					System.out.println("♻️ Target cache HIT: " + target + " → " + targetFuture.getNow("[not done]"));
-				}
 			}
 			else
 			{
