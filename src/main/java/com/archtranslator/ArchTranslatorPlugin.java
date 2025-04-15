@@ -42,11 +42,19 @@ public class ArchTranslatorPlugin extends Plugin
 	@Inject
 	private Utils utils;
 
+	private String desiredLang;
+
 	@Override
 	protected void startUp() throws Exception
 	{
 		log.info("Example started!");
 		TranslatorApi.init(config);
+
+		Languages lang = config.cfgLang();
+		desiredLang = lang.getCode();
+		log.info("Language code set to: " + desiredLang);
+
+		TranslatorCache.loadCacheIntoMemory();
 	}
 
 	@Override
@@ -81,9 +89,9 @@ public class ArchTranslatorPlugin extends Plugin
 			CompletableFuture<String> targetFuture = new CompletableFuture<>();
 
 
-			CompletableFuture<String> optionFuture = TranslatorCache.cacheCheckOrTranslate(option, checkedOption ->
+			CompletableFuture<String> optionFuture = TranslatorCache.cacheCheckOrTranslate(option, desiredLang, checkedOption ->
 			{
-				TranslatorApi.archTranslateMyMem(checkedOption, "bs", translated ->
+				TranslatorApi.archTranslateMyMem(checkedOption, desiredLang, translated ->
 				{
 					asyncOptionEntry.complete(Utils.dStrip(translated));
 				});
@@ -96,9 +104,9 @@ public class ArchTranslatorPlugin extends Plugin
 
 			if (!target.isEmpty() && player == null)
 			{
-				targetFuture = TranslatorCache.cacheCheckOrTranslate(target, checkedTarget ->
+				targetFuture = TranslatorCache.cacheCheckOrTranslate(target, desiredLang, checkedTarget ->
 				{
-					TranslatorApi.archTranslateMyMem(checkedTarget, "bs", translated ->
+					TranslatorApi.archTranslateMyMem(checkedTarget, desiredLang, translated ->
 					{
 						asyncTargetEntry.complete(Utils.dStrip(translated));
 					});
@@ -179,9 +187,16 @@ public class ArchTranslatorPlugin extends Plugin
 		}
 		String key = configChanged.getKey();
 
-		if (key.equals("cfgEmail"))
+		switch (key)
 		{
-			configChanged.setNewValue(configChanged.getNewValue());
+			case "cfgEmail":
+				configChanged.setNewValue(configChanged.getNewValue());
+				break;
+
+			case "cfgLang":
+				Languages lang = config.cfgLang();
+				desiredLang = lang.getCode();
+				log.info("Language code set to: " + desiredLang);
 		}
 	}
 
