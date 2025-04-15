@@ -27,7 +27,17 @@ public interface ArchTranslatorConfig extends Config
 	{
 		return "";
 	}
-
+	@ConfigItem(
+		keyName = "cfgLang",
+		name = "Language",
+		description = "Language to translate to",
+		section = cfgSettings,
+		position = 2
+	)
+	default Languages cfgLang()
+	{
+		return Languages.bs;
+	}
 	default String greeting()
 	{
 		return "TRANSLATOR STARTED";
