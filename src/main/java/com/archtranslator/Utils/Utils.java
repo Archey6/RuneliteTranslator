@@ -1,12 +1,23 @@
 package com.archtranslator.Utils;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.reflect.TypeToken;
+import java.io.InputStreamReader;
+import java.util.HashMap;
+import java.util.List;
+import lombok.extern.slf4j.Slf4j;
+import java.io.InputStream;
 import java.text.Normalizer;
+import java.util.Map;
 import java.util.regex.Pattern;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.Client;
-
+import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
 import javax.inject.Inject;
 
+@Slf4j
 public class Utils
 {
 	private static final Pattern DIACRITICS = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
@@ -41,4 +52,32 @@ public class Utils
 		// Remove all combining diacritic marks
 		return DIACRITICS.matcher(normalized).replaceAll("");
 	}
+
+	public static Map<String, String> loadLanguages()
+	{
+		Gson gson = new Gson();
+		InputStream stream = Utils.class.getResourceAsStream("/languages.json");
+		Map<String, String> langMap = new HashMap<>();
+
+		if (stream == null)
+		{
+			throw new RuntimeException("languages.json not found in resources");
+		}
+
+		InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8);
+
+		Type type = new TypeToken<List<JsonObject>>()
+		{
+		}.getType();
+
+		List<JsonObject> jsonData = gson.fromJson(reader, type);
+
+		for (JsonObject element : jsonData)
+		{
+			langMap.put(element.get("code").toString(), element.get("name").toString());
+		}
+		return langMap;
+	}
+
+	//public static mapToEnum
 }
