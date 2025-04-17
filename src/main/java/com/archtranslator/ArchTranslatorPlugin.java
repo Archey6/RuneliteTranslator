@@ -3,12 +3,18 @@ package com.archtranslator;
 import com.archtranslator.Utils.Utils;
 
 import com.google.inject.Provides;
+import java.util.concurrent.ExecutionException;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.MenuOpened;
+import net.runelite.api.events.WidgetLoaded;
+import net.runelite.api.widgets.Widget;
+import net.runelite.api.widgets.WidgetID;
+import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -16,6 +22,7 @@ import net.runelite.client.events.ClientShutdown;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import com.archtranslator.ArchTranslate;
 
 import java.util.*;
 import java.util.ArrayList;
@@ -43,6 +50,7 @@ public class ArchTranslatorPlugin extends Plugin
 	private Utils utils;
 
 	private String desiredLang;
+	private int lastTranslatedDialogId = -1;
 
 	@Override
 	protected void startUp() throws Exception
@@ -74,45 +82,21 @@ public class ArchTranslatorPlugin extends Plugin
 	@Subscribe
 	public void onMenuOpened(MenuOpened menuOpened)
 	{
-		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "--MENU OPENED--", null);
 		MenuEntry[] entries = client.getMenu().getMenuEntries();
 		List<CompletableFuture<MenuEntry>> futureEntries = new ArrayList<>();
+		CompletableFuture<String> optionFuture = new CompletableFuture<>();
+		CompletableFuture<String> targetFuture = new CompletableFuture<>();
 
 		for (MenuEntry entry : entries)
 		{
 			String option = entry.getOption();
 			String target = entry.getTarget();
 			Player player = entry.getPlayer();
-			String playerName;
-			final CompletableFuture<String> asyncOptionEntry = new CompletableFuture<>();
-			final CompletableFuture<String> asyncTargetEntry = new CompletableFuture<>();
-			CompletableFuture<String> targetFuture = new CompletableFuture<>();
 
-
-			CompletableFuture<String> optionFuture = TranslatorCache.cacheCheckOrTranslate(option, desiredLang, checkedOption ->
-			{
-				TranslatorApi.archTranslateMyMem(checkedOption, desiredLang, translated ->
-				{
-					asyncOptionEntry.complete(Utils.dStrip(translated));
-				});
-				return asyncOptionEntry;
-			});
-
-			if (!target.isEmpty() && player == null)
-			{
-				targetFuture = TranslatorCache.cacheCheckOrTranslate(target, desiredLang, checkedTarget ->
-				{
-					TranslatorApi.archTranslateMyMem(checkedTarget, desiredLang, translated ->
-					{
-						asyncTargetEntry.complete(Utils.dStrip(translated));
-					});
-					return asyncTargetEntry;
-				});
-			}
-			else
-			{
-				targetFuture.complete("");
-			}
+			optionFuture = ArchTranslate.translate(option, desiredLang);
+			targetFuture = !target.isEmpty() && player == null
+				? ArchTranslate.translate(target, desiredLang)
+				: CompletableFuture.completedFuture("");
 
 			CompletableFuture<MenuEntry> futureEntry = optionFuture.thenCombineAsync(targetFuture, (translatedOption, translatedTarget) ->
 				{
@@ -130,7 +114,7 @@ public class ArchTranslatorPlugin extends Plugin
 					});
 					return safe;
 				})
-					.thenCompose(Function.identity())
+				.thenCompose(Function.identity())
 				.exceptionally(ex ->
 				{
 					log.warn("entryFuture failed", ex);
@@ -153,6 +137,89 @@ public class ArchTranslatorPlugin extends Plugin
 					client.getMenu().setMenuEntries(translatedEntries);
 				});
 			});
+	}
+
+	@Subscribe
+	public void onChatMessage(ChatMessage message)
+	{
+		if (message.getType() == ChatMessageType.DIALOG && !message.getName().startsWith("[TRANSLATED]"))
+		{
+			//CompletableFuture<String> dialogFuture = new CompletableFuture<>();
+			String npcMessage = message.getMessage();
+
+
+			//CompletableFuture<String> finalDialogFuture = dialogFuture;
+			clientThread.invokeLater(() ->
+			{
+				CompletableFuture<String> dialogFuture = ArchTranslate.translate(npcMessage, desiredLang);
+				String[] translatedMsg = null;
+				try
+				{
+					translatedMsg = dialogFuture.get().split("\\|", 3);
+				}
+				catch (InterruptedException | ExecutionException e)
+				{
+					throw new RuntimeException(e);
+				}
+				String newName = translatedMsg[0].trim();
+				String newDialog = translatedMsg.length > 1 ? translatedMsg[1].trim() : "";
+
+				Widget npcDialog = client.getWidget(WidgetInfo.DIALOG_NPC_TEXT);
+				Widget npcName = client.getWidget(WidgetInfo.DIALOG_NPC_NAME);
+				Widget player = client.getWidget(WidgetInfo.DIALOG_PLAYER_TEXT);
+
+
+				if (npcDialog != null)
+				{
+					npcDialog.setText(newDialog);
+
+				}
+
+				if (player != null)
+				{
+					player.setText(newDialog);
+				}
+
+				if (npcName != null)
+				{
+					npcName.setText(newName);
+				}
+
+			});
+		}
+	}
+
+	@Subscribe
+	public void onGameTick(GameTick tick)
+	{
+		Widget options = client.getWidget(WidgetInfo.DIALOG_OPTION_OPTIONS);
+
+		if (options != null && options.getChildren() != null)
+		{
+			Widget[] dialogOptions = options.getChildren();
+			int currentDialogId = Arrays.hashCode(
+				Arrays.stream(options.getChildren())
+					.map(Widget::getText)
+					.toArray());
+
+			if (currentDialogId != lastTranslatedDialogId)
+			{
+				for (Widget child : dialogOptions)
+				{
+					String original = child.getText();
+
+					ArchTranslate.translate(original, desiredLang).thenAcceptAsync(translatedChild ->
+					{
+						clientThread.invokeLater(() ->
+						{
+							child.setText(translatedChild);
+						});
+					});
+				}
+				log.info("Dialog options translated successfully");
+				lastTranslatedDialogId = currentDialogId;
+			}
+		}
 	}
 
 	@Subscribe
@@ -190,25 +257,5 @@ public class ArchTranslatorPlugin extends Plugin
 				desiredLang = lang.getCode();
 				log.info("Language code set to: " + desiredLang);
 		}
-	}
-
-	@Subscribe
-	public void onGameTick(GameTick gameTick)
-	{
-		/*CompletableFuture<String> item;
-		item = TranslatorCache.getKey("Cancel");
-
-		try
-		{
-			if (item.isDone())
-			{
-				System.out.println(item.get());
-			}
-		}
-		catch (Exception ex)
-		{
-			System.out.println("item is null try caching something");
-		}*/
-		//System.out.println(client.getCac);
 	}
 }
